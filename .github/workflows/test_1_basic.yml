@@ -13,4 +13,5 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - run: echo Hello, world!
+      - name: ${{ inputs.uid }}
+        run: echo Hello, world!

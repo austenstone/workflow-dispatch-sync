@@ -12,10 +12,8 @@ const ref = 'main';
 const workflow_id = 'test_1_basic.yml';
 
 test('Basic Dispatch', async () => {
-  console.log({ token, ...ownerRepo, workflow_id, ref })
   console.log(`Dispatching ${ownerRepo.owner}/${ownerRepo.repo}/.github/workflows/${workflow_id}@${ref}`);
-  await workflowDispatchSync({
-    token,
+  await workflowDispatchSync(token, {
     ...ownerRepo,
     workflow_id,
     ref
