@@ -1,5 +1,4 @@
-import { WorkflowDispatch } from '../index';
-import { App } from 'octokit';
+import { App, WorkflowDispatch } from '../index';
 import * as dotenv from "dotenv";
 dotenv.config();
 

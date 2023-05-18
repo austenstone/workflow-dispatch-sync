@@ -1,6 +1,5 @@
 import { test, expect } from '@jest/globals';
-import { WorkflowDispatch } from '../src/index';
-import { App } from 'octokit';
+import { WorkflowDispatch, App } from '../src/index';
 import * as dotenv from "dotenv";
 dotenv.config()
 

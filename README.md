@@ -2,11 +2,21 @@
 
 This library triggers a GitHub Actions `workflow_dispatch` event and waits for the run to complete. After the run is complete you can easily get the log output.
 
+## Installation
+
+```bash
+npm i -S workflow-dispatch-sync
+```
+
+```ts
+import { WorkflowDispatch } from 'workflow-dispatch-sync';
+```
+
 ## Authentication
 
 You will need to create a GitHub App and install it on the repositories you want to trigger workflows on.
 
-After creating the app pass an OctoKit [`App`](https://www.npmjs.com/package/octokit#user-content-app-client) instance to the constructor. This will require you to get the `APP_ID`, `PRIVATE_KEY`, `WEBHOOK_SECRET`, `CLIENT_ID`, and `CLIENT_SECRET` from your GitHub App.
+After creating the app pass an OctoKit [`App`](https://www.npmjs.com/package/octokit#user-content-app-client) instance to the constructor. This will require you to get the `APP_ID`, `PRIVATE_KEY`, `WEBHOOK_SECRET`, `CLIENT_ID`, and `CLIENT_SECRET` from your GitHub App. We conveniently export the App from octokit so you can import it directly from the library.
 
 ## Workflow File
 
@@ -41,8 +51,7 @@ When you call the library you can pass the `uid` input in yourself otherwise it 
 This example loads the environment from `.env` and then dispatches the workflow `test_1_basic.yml` in the `austenstone/workflow-dispatch-sync` repository. It then waits for the run to complete and prints the logs.
 
 ```ts
-import { WorkflowDispatch } from '../index';
-import { App } from 'octokit';
+import { App, WorkflowDispatch } from '../index';
 import * as dotenv from "dotenv";
 dotenv.config();
 

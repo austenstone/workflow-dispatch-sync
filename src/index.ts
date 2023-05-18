@@ -27,6 +27,8 @@ export interface WorkflowRunLogs {
   }[]
 };
 
+export { App } from "octokit";
+
 export class WorkflowDispatch {
   app: App;
   private pendingDispatches: {
