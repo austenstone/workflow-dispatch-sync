@@ -41,6 +41,7 @@ jobs:
         with:
           name: dist
           path: dist/
+
   publish_npm:
     name: 🔴 NPM publish
     needs: ["build"]
@@ -61,7 +62,7 @@ jobs:
       - name: 🔴 NPM publish
         continue-on-error: true
         env:
-          NPM_TOKEN: ${{secrets.NPM_TOKEN}}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm config set //registry.npmjs.org/:_authToken ${NPM_TOKEN}
           npm publish
