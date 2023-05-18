@@ -1,9 +1,9 @@
 {
   "name": "workflow-dispatch-sync",
-  "version": "1.5.0",
+  "version": "1.0.0",
   "description": "Synchronous workflow_dispatch",
-  "main": "lib/markdown.js",
-  "types": "lib/markdown.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
     "test": "jest",

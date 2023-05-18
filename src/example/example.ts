@@ -33,5 +33,6 @@ import { App } from 'octokit';
         repo: 'workflow-dispatch-sync',
         run_id: run.workflow_run.id
     });
-    console.log(logs);
+    
+    console.log(JSON.stringify(logs, null, 2));
 })();

@@ -13,6 +13,21 @@ import { v4 as uuidv4 } from 'uuid';
 import * as dotenv from "dotenv";
 dotenv.config()
 
+export interface WorkflowRunLogs {
+  name: string;
+  lines: {
+    time: string;
+    text: string;
+  }[];
+  steps: {
+    name: string;
+    lines: {
+      time: string;
+      text: string;
+    }[];
+  }[]
+};
+
 export class WorkflowDispatch {
   app: App;
   private pendingDispatches: {
@@ -115,26 +130,57 @@ export class WorkflowDispatch {
 
   getWorkflowRunLogs = async (
     parameters: Endpoints["GET /repos/{owner}/{repo}/actions/runs/{run_id}/logs"]["parameters"]
-  ): Promise<{
-    name: string;
-    text: string;
-  }[]> => {
-    const contents: any[] = [];
+  ): Promise<WorkflowRunLogs[]> => {
+    const logs: any[] = [];
     for await (const { octokit, repository } of this.app.eachRepository.iterator()) {
       if (repository.name !== parameters.repo) continue;
       const logsReponse = await octokit.rest.actions.downloadWorkflowRunLogs(parameters);
       const blob = new Blob([logsReponse.data as ArrayBuffer]);
       const files = await (new zip.ZipReader(new zip.BlobReader(blob))).getEntries({ filenameEncoding: "utf-8" });
+      const cleanFileName = (fileName: string) => {
+        const matches = fileName.match(/\d+_(.*)\.txt/);
+        return matches ? matches[1] : fileName;
+      }
       for (const file of files) {
-        if (file.getData) {
-          contents.push({
-            name: file.filename,
-            text: await file.getData(new zip.TextWriter())
+        if (file.directory) continue;
+        if (!file.getData) continue;
+        const text = await file.getData(new zip.TextWriter());
+        const lines = text.split('\n')?.map((line) => {
+          if (line.length < 28) return;
+          return {
+            // parse the time such as 2023-05-18T21:16:07.4339173Z
+            time: line.substring(0, 28),
+            text: line.substring(29)
+          }
+        }).filter(line => line);
+        if (file.filename.includes('/')) {
+          const parts = file.filename.split('/');
+          const jobName = parts[0];
+          const stepName = cleanFileName(parts[1]);
+          const existingJob = logs.find((log) => log.name === jobName);
+          const step = {
+            name: stepName,
+            lines
+          }
+          if (existingJob) {
+            existingJob.steps = existingJob.steps || [];
+            existingJob.steps.push(step);
+          } else {
+            logs.push({
+              name: jobName,
+              steps: [step]
+            });
+          }
+        } else {
+          logs.push({
+            name: cleanFileName(file.filename),
+            lines,
+            steps: []
           });
         }
       }
     }
-    return contents;
+    return logs;
   }
 
   close = () => {
