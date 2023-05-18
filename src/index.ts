@@ -4,6 +4,8 @@ import { Server, createServer } from "node:http";
 import { App, createNodeMiddleware } from "octokit";
 import { EmitterWebhookEvent } from "@octokit/webhooks/dist-types/index";
 
+import * as zip from "@zip.js/zip.js";
+
 const SmeeClient = require('smee-client')
 import EventSource from "eventsource";
 
@@ -11,6 +13,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import * as dotenv from "dotenv";
 dotenv.config()
+
 export class WorkflowDispatch {
   app: App;
   private pendingDispatches: {
@@ -30,14 +33,15 @@ export class WorkflowDispatch {
     this.app = app;
     this.port = port;
 
+    this.app.webhooks.on("workflow_run", this.onWorkflowRun);
+
     if (webhookProxyUrl) {
       console.log(`Setting up Smee with ${webhookProxyUrl}`)
       this.setupSmee(webhookProxyUrl);
+      this.events = this.smee.start()
     }
-    
-    this.app.webhooks.on("workflow_run", this.onWorkflowRun);
-    
-    createServer(createNodeMiddleware(app)).listen(port);
+    this.server = createServer(createNodeMiddleware(app)).listen(port);
+    if (this.events) this.events.close();
   }
 
   private setupSmee = (webhookProxyUrl: string) => {
@@ -60,7 +64,7 @@ export class WorkflowDispatch {
         .catch(console.error);
     };
 
-    this.events = this.smee.start()
+    return this.smee;
   };
 
   private onWorkflowRun = async ({ octokit, payload }) => {
@@ -94,8 +98,6 @@ export class WorkflowDispatch {
     if (!parameters.inputs.uid) parameters.inputs.uid = uuidv4();
     for await (const { octokit, repository } of this.app.eachRepository.iterator()) {
       if (repository.name !== parameters.repo) continue;
-      console.log('found repo', repository.name)
-      break;
       await octokit.rest.actions.createWorkflowDispatch(parameters);
     }
     return new Promise<EmitterWebhookEvent<'workflow_run.completed'>['payload']>((resolve, reject) => {
@@ -112,9 +114,36 @@ export class WorkflowDispatch {
     });
   }
 
+  getWorkflowRunLogs = async (
+    parameters: Endpoints["GET /repos/{owner}/{repo}/actions/runs/{run_id}/logs"]["parameters"]
+  ): Promise<{
+    name: string;
+    text: string;
+  }[]> => {
+    const contents: any[] = [];
+    for await (const { octokit, repository } of this.app.eachRepository.iterator()) {
+      if (repository.name !== parameters.repo) continue;
+      const logsReponse = await octokit.rest.actions.downloadWorkflowRunLogs(parameters);
+      const blob = new Blob([logsReponse.data as ArrayBuffer]);
+      console.log(logsReponse)
+      const files = await (new zip.ZipReader(new zip.BlobReader(blob))).getEntries({ filenameEncoding: "utf-8" });
+      for (const file of files) {
+        console.log(file.filename)
+        if (file.getData) {
+          contents.push({
+            name: file.filename,
+            text: await file.getData(new zip.TextWriter())
+          });
+        }
+      }
+    }
+    return contents;
+  }
+
   close = () => {
-    this.source.close();
     this.events.close();
+    this.source.close();
+    this.server.close();
   }
 
 }
