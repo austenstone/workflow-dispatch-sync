@@ -2,9 +2,14 @@ name: Basic
 
 on:
   workflow_dispatch:
+    inputs:
+      uid:
+        description: 'Unique identifier'
+        required: true
 
 jobs:
   build:
+    name: ${{ inputs.uid }}
     runs-on: ubuntu-latest
 
     steps:
