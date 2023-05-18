@@ -2,6 +2,8 @@ import { Endpoints } from "@octokit/types";
 import { WorkflowRunRequestedEvent, WorkflowRunInProgressEvent, WorkflowRunCompletedEvent } from "@octokit/webhooks-types";
 import { Server, createServer } from "node:http";
 import { App, createNodeMiddleware } from "octokit";
+import { TransformStream } from "node:stream/web";
+globalThis.TransformStream = TransformStream as any;
 
 import * as zip from "@zip.js/zip.js";
 
