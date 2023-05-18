@@ -30,6 +30,10 @@ jobs:
       - name: 🔨 Build
         run: npm run build
 
+      # echo the secret ENV to .env file
+      - name: Setup .env
+        run: echo ${{ secrets.ENV }} > .env
+
       - name: 🧪 Test
         run: npm run test
 
