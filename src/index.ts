@@ -1,8 +1,7 @@
 import { Endpoints } from "@octokit/types";
-
+import { WorkflowRunRequestedEvent, WorkflowRunInProgressEvent, WorkflowRunCompletedEvent } from "@octokit/webhooks-types";
 import { Server, createServer } from "node:http";
 import { App, createNodeMiddleware } from "octokit";
-import { EmitterWebhookEvent } from "@octokit/webhooks/dist-types/index";
 
 import * as zip from "@zip.js/zip.js";
 
@@ -18,9 +17,9 @@ export class WorkflowDispatch {
   app: App;
   private pendingDispatches: {
     uid: string;
-    requested?: (run: EmitterWebhookEvent<'workflow_run.requested'>['payload']) => void;
-    progress?: (run: EmitterWebhookEvent<'workflow_run.in_progress'>['payload']) => void;
-    resolve: (run: EmitterWebhookEvent<'workflow_run.completed'>['payload']) => void;
+    requested?: (run: WorkflowRunRequestedEvent) => void;
+    progress?: (run: WorkflowRunInProgressEvent) => void;
+    resolve: (run: WorkflowRunCompletedEvent) => void;
     reject: (reason?: any) => void;
   }[] = [];
   private source: EventSource;
@@ -91,8 +90,8 @@ export class WorkflowDispatch {
 
   workflowDispatchSync = async (
     parameters: Endpoints["POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches"]["parameters"],
-    requested?: (run: EmitterWebhookEvent<'workflow_run.requested'>['payload']) => void,
-    progress?: (run: EmitterWebhookEvent<'workflow_run.in_progress'>['payload']) => void
+    requested?: (run: WorkflowRunRequestedEvent) => void,
+    progress?: (run: WorkflowRunInProgressEvent) => void
   ) => {
     if (!parameters.inputs) parameters.inputs = {};
     if (!parameters.inputs.uid) parameters.inputs.uid = uuidv4();
@@ -100,7 +99,7 @@ export class WorkflowDispatch {
       if (repository.name !== parameters.repo) continue;
       await octokit.rest.actions.createWorkflowDispatch(parameters);
     }
-    return new Promise<EmitterWebhookEvent<'workflow_run.completed'>['payload']>((resolve, reject) => {
+    return new Promise<WorkflowRunCompletedEvent>((resolve, reject) => {
       this.pendingDispatches.push({
         uid: parameters.inputs?.uid as string,
         requested,
@@ -125,10 +124,8 @@ export class WorkflowDispatch {
       if (repository.name !== parameters.repo) continue;
       const logsReponse = await octokit.rest.actions.downloadWorkflowRunLogs(parameters);
       const blob = new Blob([logsReponse.data as ArrayBuffer]);
-      console.log(logsReponse)
       const files = await (new zip.ZipReader(new zip.BlobReader(blob))).getEntries({ filenameEncoding: "utf-8" });
       for (const file of files) {
-        console.log(file.filename)
         if (file.getData) {
           contents.push({
             name: file.filename,
