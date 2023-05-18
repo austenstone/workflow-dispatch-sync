@@ -12,9 +12,6 @@ import EventSource from "eventsource";
 
 import { v4 as uuidv4 } from 'uuid';
 
-import * as dotenv from "dotenv";
-dotenv.config()
-
 export interface WorkflowRunLogs {
   name: string;
   lines: {

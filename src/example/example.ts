@@ -1,5 +1,7 @@
 import { WorkflowDispatch } from '../index';
 import { App } from 'octokit';
+import * as dotenv from "dotenv";
+dotenv.config();
 
 (async () => {
     if (!process.env.APP_ID) throw new Error("APP_ID not set in environment variables!");
