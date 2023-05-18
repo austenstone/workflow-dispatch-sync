@@ -22,6 +22,7 @@ dotenv.config();
         clientSecret: process.env.CLIENT_SECRET
       }
     });
+
     const dispatcher = new WorkflowDispatch(app);
     const run = await dispatcher.workflowDispatchSync({
         owner: 'austenstone',
@@ -30,11 +31,13 @@ dotenv.config();
         workflow_id: 'test_1_basic.yml'
     })
     console.log(`Workflow run ${run.workflow_run.id} completed with status ${run.workflow_run.status}!`)
+
     const logs = await dispatcher.getWorkflowRunLogs({
         owner: 'austenstone',
         repo: 'workflow-dispatch-sync',
         run_id: run.workflow_run.id
     });
-    
     console.log(JSON.stringify(logs, null, 2));
+
+    dispatcher.close();
 })();
