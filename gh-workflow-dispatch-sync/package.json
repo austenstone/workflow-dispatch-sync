@@ -1,0 +1,17 @@
+{
+  "name": "gh-workflow-dispatch-sync",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "chalk": "^5.2.0",
+    "inquirer": "^9.2.4",
+    "workflow-dispatch-sync": "^1.1.0"
+  }
+}

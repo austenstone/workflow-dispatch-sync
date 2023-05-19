@@ -3,15 +3,15 @@ set -e
 
 echo "Hello gh-workflow-dispatch-sync!"
 
+node cli.mjs
+
 # Snippets to help get started:
 
 # Determine if an executable is in the PATH
-if ! type -p node >/dev/null; then
-  echo "Node not found on the system" >&2
-  exit 1
-fi
-
-node dist/index.js
+# if ! type -p ruby >/dev/null; then
+#   echo "Ruby not found on the system" >&2
+#   exit 1
+# fi
 
 # Pass arguments through to another command
 # gh issue list "$@" -R cli/cli

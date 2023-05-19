@@ -1,6 +1,7 @@
 import { test, expect } from '@jest/globals';
-import WorkflowDispatch from '../src/index';
-import { App } from 'octokit';
+import WorkflowDispatch, { App } from '../src/index';
+import * as dotenv from "dotenv";
+dotenv.config()
 
 jest.setTimeout(30000);
 
@@ -31,10 +32,12 @@ describe('WorkflowDispatch', () => {
   
   test('Basic Dispatch', async () => {
     const run = await dispatcher.workflowDispatchSync({
-      owner: 'austenstone',
-      repo: 'workflow-dispatch-sync',
-      ref: 'main',
-      workflow_id: 'test_1_basic.yml'
+      parameters: {  
+        owner: 'austenstone',
+        repo: 'workflow-dispatch-sync',
+        ref: 'main',
+        workflow_id: 'test_1_basic.yml'
+      }
     });
     expect(run.workflow_run.status).toBe('completed');
   });  

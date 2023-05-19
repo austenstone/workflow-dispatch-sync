@@ -1,8 +1,9 @@
 import { Endpoints } from "@octokit/types";
-
+import { WorkflowRunRequestedEvent, WorkflowRunInProgressEvent, WorkflowRunCompletedEvent } from "@octokit/webhooks-types";
 import { Server, createServer } from "node:http";
 import { App, createNodeMiddleware } from "octokit";
-import { EmitterWebhookEvent } from "@octokit/webhooks/dist-types/index";
+import { TransformStream } from "node:stream/web";
+globalThis.TransformStream = TransformStream as any;
 
 import * as zip from "@zip.js/zip.js";
 
@@ -11,16 +12,30 @@ import EventSource from "eventsource";
 
 import { v4 as uuidv4 } from 'uuid';
 
-import * as dotenv from "dotenv";
-dotenv.config()
+export interface WorkflowRunLogs {
+  name: string;
+  lines: {
+    time: string;
+    text: string;
+  }[];
+  steps: {
+    name: string;
+    lines: {
+      time: string;
+      text: string;
+    }[];
+  }[]
+};
+
+export { App } from "octokit";
 
 export default class WorkflowDispatch {
   app: App;
   private pendingDispatches: {
     uid: string;
-    requested?: (run: EmitterWebhookEvent<'workflow_run.requested'>['payload']) => void;
-    progress?: (run: EmitterWebhookEvent<'workflow_run.in_progress'>['payload']) => void;
-    resolve: (run: EmitterWebhookEvent<'workflow_run.completed'>['payload']) => void;
+    requested?: (run: WorkflowRunRequestedEvent) => void;
+    progress?: (run: WorkflowRunInProgressEvent) => void;
+    resolve: (run: WorkflowRunCompletedEvent) => void;
     reject: (reason?: any) => void;
   }[] = [];
   private source: EventSource;
@@ -40,7 +55,9 @@ export default class WorkflowDispatch {
       this.setupSmee(webhookProxyUrl);
       this.events = this.smee.start()
     }
-    this.server = createServer(createNodeMiddleware(app)).listen(port);
+    this.server = createServer(createNodeMiddleware(app, {
+      onUnhandledRequest: undefined
+    })).listen(port);
     if (this.events) this.events.close();
   }
 
@@ -58,8 +75,8 @@ export default class WorkflowDispatch {
         .verifyAndReceive({
           id: webhookEvent["x-request-id"],
           name: webhookEvent["x-github-event"],
-          signature: webhookEvent["x-hub-signature"],
-          payload: webhookEvent.body,
+          payload: JSON.stringify(webhookEvent.body),
+          signature: webhookEvent["x-hub-signature"]
         })
         .catch(console.error);
     };
@@ -89,55 +106,87 @@ export default class WorkflowDispatch {
     });
   }
 
-  workflowDispatchSync = async (
-    parameters: Endpoints["POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches"]["parameters"],
-    requested?: (run: EmitterWebhookEvent<'workflow_run.requested'>['payload']) => void,
-    progress?: (run: EmitterWebhookEvent<'workflow_run.in_progress'>['payload']) => void
-  ) => {
-    if (!parameters.inputs) parameters.inputs = {};
-    if (!parameters.inputs.uid) parameters.inputs.uid = uuidv4();
+  workflowDispatchSync = async (req: {
+    parameters: Endpoints["POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches"]["parameters"];
+    requested?: (run: WorkflowRunRequestedEvent) => void;
+    progress?: (run: WorkflowRunInProgressEvent) => void;
+  }) => {
+    const repo = req.parameters.repo;
+    if (!req.parameters.inputs) req.parameters.inputs = {};
+    const inputs = req.parameters.inputs;
+    if (!inputs.uid) inputs.uid = uuidv4();
     for await (const { octokit, repository } of this.app.eachRepository.iterator()) {
-      if (repository.name !== parameters.repo) continue;
-      await octokit.rest.actions.createWorkflowDispatch(parameters);
+      if (repository.name !== repo) continue;
+      await octokit.rest.actions.createWorkflowDispatch(req.parameters);
     }
-    return new Promise<EmitterWebhookEvent<'workflow_run.completed'>['payload']>((resolve, reject) => {
+
+    return new Promise<WorkflowRunCompletedEvent>((resolve, reject) => {
       this.pendingDispatches.push({
-        uid: parameters.inputs?.uid as string,
-        requested,
-        progress,
+        uid: inputs.uid as string,
+        requested: req.requested,
+        progress: req.progress,
         resolve,
         reject
       });
     }).finally(() => {
-      const index = this.pendingDispatches.findIndex((dispatch) => dispatch.uid === parameters.inputs?.uid);
+      const index = this.pendingDispatches.findIndex((dispatch) => dispatch.uid === inputs.uid);
       if (index >= 0) this.pendingDispatches.splice(index, 1);
     });
   }
 
   getWorkflowRunLogs = async (
     parameters: Endpoints["GET /repos/{owner}/{repo}/actions/runs/{run_id}/logs"]["parameters"]
-  ): Promise<{
-    name: string;
-    text: string;
-  }[]> => {
-    const contents: any[] = [];
+  ): Promise<WorkflowRunLogs[]> => {
+    const logs: any[] = [];
     for await (const { octokit, repository } of this.app.eachRepository.iterator()) {
       if (repository.name !== parameters.repo) continue;
       const logsReponse = await octokit.rest.actions.downloadWorkflowRunLogs(parameters);
       const blob = new Blob([logsReponse.data as ArrayBuffer]);
-      console.log(logsReponse)
       const files = await (new zip.ZipReader(new zip.BlobReader(blob))).getEntries({ filenameEncoding: "utf-8" });
+      const cleanFileName = (fileName: string) => {
+        const matches = fileName.match(/\d+_(.*)\.txt/);
+        return matches ? matches[1] : fileName;
+      }
       for (const file of files) {
-        console.log(file.filename)
-        if (file.getData) {
-          contents.push({
-            name: file.filename,
-            text: await file.getData(new zip.TextWriter())
+        if (file.directory) continue;
+        if (!file.getData) continue;
+        const text = await file.getData(new zip.TextWriter());
+        const lines = text.split('\n')?.map((line) => {
+          if (line.length < 28) return;
+          return {
+            // parse the time such as 2023-05-18T21:16:07.4339173Z
+            time: line.substring(0, 28),
+            text: line.substring(29)
+          }
+        }).filter(line => line);
+        if (file.filename.includes('/')) {
+          const parts = file.filename.split('/');
+          const jobName = parts[0];
+          const stepName = cleanFileName(parts[1]);
+          const existingJob = logs.find((log) => log.name === jobName);
+          const step = {
+            name: stepName,
+            lines
+          }
+          if (existingJob) {
+            existingJob.steps = existingJob.steps || [];
+            existingJob.steps.push(step);
+          } else {
+            logs.push({
+              name: jobName,
+              steps: [step]
+            });
+          }
+        } else {
+          logs.push({
+            name: cleanFileName(file.filename),
+            lines,
+            steps: []
           });
         }
       }
     }
-    return contents;
+    return logs;
   }
 
   close = () => {
