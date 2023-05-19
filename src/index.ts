@@ -154,7 +154,6 @@ export default class WorkflowDispatch {
         const lines = text.split('\n')?.map((line) => {
           if (line.length < 28) return;
           return {
-            // parse the time such as 2023-05-18T21:16:07.4339173Z
             time: line.substring(0, 28),
             text: line.substring(29)
           }
