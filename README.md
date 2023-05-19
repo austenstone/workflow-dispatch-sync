@@ -4,6 +4,7 @@ This library triggers a GitHub Actions `workflow_dispatch` event and waits for t
 
 ## Installation
 
+[NPM](https://www.npmjs.com/package/workflow-dispatch-sync) or [GitHub Packages](https://github.com/austenstone/workflow-dispatch-sync/pkgs/npm/workflow-dispatch-sync).
 ```bash
 npm i -S workflow-dispatch-sync
 ```
