@@ -4,6 +4,7 @@
   "description": "Synchronous workflow_dispatch",
   "main": "lib/markdown.js",
   "types": "lib/markdown.d.ts",
+  "type": "module",
   "scripts": {
     "build": "tsc",
     "test": "jest",

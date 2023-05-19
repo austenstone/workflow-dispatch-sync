@@ -1,5 +1,5 @@
 import { test, expect } from '@jest/globals';
-import { WorkflowDispatch } from '../src/index';
+import WorkflowDispatch from '../src/index';
 import { App } from 'octokit';
 
 jest.setTimeout(30000);

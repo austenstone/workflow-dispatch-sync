@@ -14,7 +14,7 @@ import { v4 as uuidv4 } from 'uuid';
 import * as dotenv from "dotenv";
 dotenv.config()
 
-export class WorkflowDispatch {
+export default class WorkflowDispatch {
   app: App;
   private pendingDispatches: {
     uid: string;

@@ -1,4 +1,4 @@
-import { WorkflowDispatch } from '../index';
+import WorkflowDispatch from '../index';
 import { App } from 'octokit';
 
 (async () => {
